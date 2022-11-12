@@ -1,0 +1,59 @@
+# PRE-PROCESSING DATASET on GOOGLE CLOUD PLATFORM (GCP) 
+hadoop fs -mkdir /pig
+hadoop fs -cp 'gs://ah-cloudassignment1-6nov2022/all_emails.csv' /pig
+
+
+#FILE UPLOADED
+'hdfs://cloudassignment-m/piggy /all_emails.csv'
+
+
+#PIGGYBANK INSATLLED
+wget https://github.com/prasad1825/CA675-Assignment2/raw/main/Data%20Cleaning/piggybank.jar
+
+
+#LAUNCHING PIG
+Pig
+
+
+#REGISTERING CSVExcelStorage
+register /home/Archit_garg2/piggybank.jar
+
+
+#Load data from the five CSV files into Pig
+mailDataFile = Load '/piggy/all_emails.csv' USING org.apache.pig.piggybank.storage.CSVExcelStorage(',','YES_MULTILINE') AS (date:chararray, to:chararray, from:chararray, body:chararray, label:chararray);
+
+
+#EXTRACTED REQUIRED COLUMNS AND USED REPLACE FOR CLEANING THE EMAIL BODY#
+generateMailDataFile =FOREACH mailDataFile GENERATE date, to, from,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE((REPLACE(body,'[\r\n]+','')),'<[^>]*>' , ' '),'[^a-zA-Z\\s\']+',' '),'(?=\\S*[\'])([a-zA-Z\'-]+)',''),'(?<![\\w\\-])\\w(?![\\w\\-])',''),'[ ]{2,}',' ') as body ;
+
+
+# ELIMINATED ROWS WITH AT LEAST ONE NULL FIELD
+generateMailDataFile_notnull = FILTER generateMailDataFile  by NOT ((date IS NULL) OR (to IS NULL) OR (from IS NULL) OR (body IS NULL) );
+
+
+#ELIMINATED ROWS WITH AT LEAST ONE BLANK FIELD
+generateMailDataFile_notnull_notblank = FILTER generateMailDataFile_notnull  by NOT ((to =='') OR (from =='') OR (body ==''));
+
+
+# ELIMINATE ROWS WITH AT LEAST ONE 'N/A' FIELD
+generateMailDataFile_notnull_notblank_na = FILTER generateMailDataFile_notnull_notblank  by NOT ((to =='N/A') OR (from =='N/A') OR (body =='N/A'));
+
+
+#STORING FILTERED DATA INTO  -> HDFS/FinalHiveData
+STORE generateMailDataFile_notnull_notblank_na INTO '/FinalHiveData' USING org.apache.pig.piggybank.storage.CSVExcelStorage(',','YES_MULTILINE');
+
+
+#THE LOG FILE NAMELY SUCCESS DELETED
+hadoop fs -rm /FinalHiveData/_SUCCESS
+
+
+# part-m- files in /FinalHiveData were merged into only file 
+
+hadoop fs -getmerge /FinalHiveData /home/archit_garg2/hive_allmails_input.csv
+hadoop fs -put hive_allmails_input.csv 'gs://ag_cloudassignment_6112022_updated'
+
+
+#CREATED A BUCKET TO STORE THE UPDATED DATASET
+Created a csv file to 'gs:// ag_cloudassignment_6112022_updated’ 
+
+
